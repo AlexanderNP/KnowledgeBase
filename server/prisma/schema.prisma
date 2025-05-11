@@ -51,8 +51,8 @@ model Categories {
   name        String   @unique
   description String
   imageUrl    String?
-  articleId   String   @db.ObjectId
-  article     Articles @relation(fields: [articleId], references: [id])
+  articleId   String?   @db.ObjectId
+  article     Articles? @relation(fields: [articleId], references: [id])
   createdAt   DateTime @default(now())
   updateAt    DateTime @updatedAt
 }
