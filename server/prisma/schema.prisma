@@ -14,15 +14,84 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Post {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  title  String
-  userId String @db.ObjectId
-  user   User   @relation(fields: [userId], references: [id])
+model Articles {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  content    String
+  viewCount  Int          @default(0)
+  likesCount Int          @default(0)
+  authorId   String       @db.ObjectId
+  comments   Comments[]
+  mediaFiles MediaFiles[]
+  categories Categories[]
+  createdAt  DateTime     @default(now())
+  updateAt   DateTime     @updatedAt
+}
+
+model Comments {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  content   String
+  userId    String   @db.ObjectId
+  articleId String   @db.ObjectId
+  article   Articles @relation(fields: [articleId], references: [id])
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+}
+
+model MediaFiles {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  url       String
+  type      FileTypes @default(IMG)
+  articleId String    @db.ObjectId
+  article   Articles  @relation(fields: [articleId], references: [id])
+}
+
+model Categories {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String   @unique
+  description String
+  imageUrl    String?
+  articleId   String   @db.ObjectId
+  article     Articles @relation(fields: [articleId], references: [id])
+  createdAt   DateTime @default(now())
+  updateAt    DateTime @updatedAt
 }
 
 model User {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
-  email String
-  posts Post[]
+  id               String             @id @default(auto()) @map("_id") @db.ObjectId
+  username         String
+  email            String             @unique
+  password         String
+  role             Role               @default(USER)
+  favoritesArticle FavoritesArticle[]
+  refreshTokens    RefreshTokens[]
+  createdAt        DateTime           @default(now())
+  updateAt         DateTime           @updatedAt
+}
+
+model RefreshTokens {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  token      String
+  validUntil DateTime
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model FavoritesArticle {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  articleId String   @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  savedAt   DateTime @default(now())
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum FileTypes {
+  DOCUMENT
+  IMG
 }
