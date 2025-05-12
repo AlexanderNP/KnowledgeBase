@@ -8,7 +8,9 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
-  create(@Body() categoryData: CreateСategoryDto): Promise<CategoriesModel> {
+  async createCategory(
+    @Body() categoryData: CreateСategoryDto,
+  ): Promise<CategoriesModel> {
     const { description, name, imageUrl } = categoryData;
 
     return this.categoriesService.create({
@@ -19,7 +21,7 @@ export class CategoriesController {
   }
 
   @Get()
-  findAll(): string {
-    return 'This action returns all cats';
+  async getCategories(): Promise<CategoriesModel[]> {
+    return this.categoriesService.getCategories();
   }
 }

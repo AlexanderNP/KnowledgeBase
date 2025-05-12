@@ -7,7 +7,10 @@ export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: Prisma.CategoriesCreateInput): Promise<Categories> {
-    console.log(data);
     return this.prisma.categories.create({ data });
+  }
+
+  async getCategories(): Promise<Categories[]> {
+    return this.prisma.categories.findMany();
   }
 }
