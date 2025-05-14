@@ -1,15 +1,23 @@
-docker-compose:
+version: "3.9"
+
 services:
   minio:
     image: quay.io/minio/minio
-    restart: always
-    container_name: minio
-    ports:
-      - "9000:9000"
-      - "9090:9090"
-    volumes:
-      - minio-data:/data
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
     command: server /data --console-address ":9090"
+    restart: always
+    ports:
+      - 9000:9000
+      - 9090:9090
+    volumes:
+      - 'minio_data:/data'
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    networks:
+      - minio_net
+
+volumes:
+  minio_data:
+
+networks:
+  minio_net:

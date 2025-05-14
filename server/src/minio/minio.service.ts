@@ -1,226 +1,70 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as Minio from 'minio';
 
 @Injectable()
-export class StorageService {
+export class MinioService {
+  private minioClient: Minio.Client;
+  private bucketName: string;
+  private readonly minioFinalUrl: string;
 
-  private s3Client: S3Client;
-  private bucketName: string;  private readonly S3Endpoint = `https://${process.env.S3_URL}`;
-
-  constructor(
-    @InjectModel(Dialoge.name) private DialogeModel: Model<Dialoge>,
-    @InjectModel(File.name) private FileModel: Model<File>,
-    @InjectModel(User.name) private UserModel: Model<User>,
-    private CryptService: CryptService
-  ) {
-    this.s3Client = new S3Client({
-      region: 'us-east-1',
-      endpoint: this.S3Endpoint,
-      credentials: {
-        accessKeyId: process.env.MINIO_ACCESS_KEY,
-        secretAccessKey: process.env.MINIO_SECRET_KEY
-      },
-      forcePathStyle: true
+  constructor(private readonly configService: ConfigService) {
+    this.minioClient = new Minio.Client({
+      endPoint: this.configService.get('MINIO_ENDPOINT') as string,
+      port: Number(this.configService.get('MINIO_PORT')),
+      useSSL: false,
+      accessKey: this.configService.get('MINIO_ACCESS_KEY') as string,
+      secretKey: this.configService.get('MINIO_SECRET_KEY') as string,
     });
 
-    this.bucketName = process.env.MINIO_BUCKET_NAME || "storage";    this.ensureBucketExists(this.bucketName);
+    this.bucketName = this.configService.get('MINIO_BUCKET_NAME') as string;
+    this.minioFinalUrl = this.configService.get('MINIO_FINAL_URL') as string;
   }
 
-private async ensureBucketExists(
-    bucketName: string,
-    isPublic: boolean = false
-  ) {
-    try {
-      await this.s3Client.send(new HeadBucketCommand({ Bucket: bucketName }));
-      console.log(`Бакет ${bucketName} существует`);
-    }
-    catch(error) {
-      if(error.name === "NotFound") {
-        await this.s3Client.send(new CreateBucketCommand({ Bucket: bucketName }));
-
-        if(isPublic) {
-          const publicPolicy = {
-            Version: "2012-10-17",
-            Statement: [
-              {
-                Sid: "PublicReadGetObject",
-                Effect: "Allow",
-                Principal: "*",
-                Action: "s3:GetObject",
-                Resource: `arn:aws:s3:::${bucketName}/*`
-              }
-            ]
-          };
-          await this.s3Client.send(new PutBucketPolicyCommand({
-            Bucket: bucketName,
-            Policy: JSON.stringify(publicPolicy)
-          }));
-          console.log(`Бакет ${bucketName} публичный`);
-        }
-
-        console.log(`Бакет ${bucketName} создан`);
-      }
-      else {
-        console.error(`Ошибка при проверке бакета:\n${JSON.stringify(error)}\n`);
-      }
+  async createBucketIfNotExists() {
+    const bucketExists = await this.minioClient.bucketExists(this.bucketName);
+    if (!bucketExists) {
+      await this.minioClient.makeBucket(this.bucketName, 'eu-west-1');
+      await this.setPublicBucketPolicy();
     }
   }
 
-async createFile(
-    filebuffer: Buffer,
-    filepath: string,
-    filename: string,
-    filesize: number,
-    isPublic: boolean,
-    dialogeId?: string,
-  ) : Promise<{ fileId: string, filename: string, filesize: string }> {
-    const bucket = isPublic ? this.publicBucketName : this.bucketName;
-    await this.s3Client.send(new PutObjectCommand({
-      Bucket: bucket,
-      Key: filepath,
-      Body: filebuffer,
-      ContentType: 'application/octet-stream',
-      ACL: isPublic ? 'public-read' : undefined
-    }));
-
-    const filesizeString = this.formatFileSize(filesize);
-    const { encryptedData, iv } = this.CryptService.encrypt(filename);
-    if(isPublic) {
-      const publicUrl = `${this.S3Endpoint}/${bucket}/${filepath}`;
-      const file = await this.FileModel.create({
-        filename: encryptedData,
-        iv: iv,
-        path: publicUrl,
-        size: filesizeString,
-        isPublic: true,
-      });
-      return {
-        fileId: file._id.toString(),
-        filename: filename,
-        filesize: file.size
-      }
-    }
-
-    if(dialogeId) {
-      const dialoge = await this.DialogeModel.findById(dialogeId);
-      if(!dialoge) {
-        throw new BadRequestException(["Такого диалога не существует"]);
-      }
-
-      const file = await this.FileModel.create({
-        filename: encryptedData,
-        iv: iv,
-        path: filepath,
-        size: filesizeString,
-        isPublic: false,
-        dialoge: dialoge._id
-      });
-
-      return {
-        fileId: file._id.toString(),
-        filename: filename,
-        filesize: file.size
-      }
-    }
-  }
-
-async getFile(
-    fileId: string,
-    userId: string,
-  ) : Promise<FileDocument> {
-    const file = await this.FileModel.findById(fileId);
-    if(!file) {
-      throw new BadRequestException(["Такого файла не существует"]);
-    }
-
-    if(file.isPublic) {
-      const filename = this.CryptService.decrypt(file.filename, file.iv);
-      file.filename = filename;
-      return file;
-    }
-
-    if(file.dialoge) {
-      const dialoge = await this.DialogeModel.findById(file.dialoge);
-      if(!dialoge) {
-        throw new BadRequestException(["Такого диалога не существует"]);
-      }
-
-      const userIdObject = new mongoose.Types.ObjectId(userId);
-      if(!dialoge.participants.includes(userIdObject)) {
-        throw new UnauthorizedException(["У вас нет доступа к этому файлу"]);
-      }
-    }
-    else {
-      throw new BadRequestException(["У вас нет доступа к этому файлу"]);
-    }
-
-    const filename = this.CryptService.decrypt(file.filename, file.iv);
-    file.filename = filename;
-    return file;
-  }
-
-async getPresignedUrl(
-    fileId: string,
-    userId: string,
-    isImage: boolean = false
-  ) : Promise<string> {
-    const file = await this.getFile(fileId, userId);
-    if(file.isPublic) {
-      if(isImage) {
-        const mimeType = this.getMimeType(file.filename);
-        return ${file.path}?response-cache-control=public&response-content-type=${mimeType}&response-content-disposition=inline;
-      }
-      else {
-        return ${file.path}?response-content-disposition=attachment";
-      }
-    }
-
-    const bucket = file.isPublic ? this.publicBucketName : this.bucketName;
-    const commandInput: GetObjectCommandInput = {
-      Bucket: bucket,
-      Key: file.path
-    };
-
-    if(isImage) {
-      const mimeType = this.getMimeType(file.filename);
-      commandInput.ResponseContentType = mimeType;
-      commandInput.ResponseContentDisposition = "inline";
-    }
-    else {
-      commandInput.ResponseContentDisposition = attachment; filename="${file.filename}";
-    }
-
-    const command = new GetObjectCommand(commandInput);
-
-    const signedUrl = await getSignedUrl(
-      this.s3Client,
-      command,
-      { expiresIn: 3600 }
+  async uploadFile(file: Express.Multer.File) {
+    const fileName = `${file.originalname}`;
+    await this.minioClient.putObject(
+      this.bucketName,
+      fileName,
+      file.buffer,
+      file.size,
     );
-    
-    return signedUrl;
+
+    return fileName;
   }
 
-private getMimeType(filename: string): string {
-    const extension = extname(filename);
-
-    switch(extension) {
-      case ".jpg":
-      case ".jpeg":
-        return "image/jpeg";
-      case ".png":
-        return "image/png";
-      case ".webp":
-        return "image/webp";
-      
-      default:
-        return "application/octet-stream";
-    }
+  getFileUrl(fileName: string) {
+    return `${this.minioFinalUrl}/${fileName}`;
   }
 
-private formatFileSize(size: number): string {
-    if (size < 1024) return ${size} Б;
-    if (size < 1024 * 1024) return ${(size / 1024).toFixed(2)} Кб;
-    if (size < 1024 * 1024 * 1024) return ${(size / (1024 * 1024)).toFixed(2)} Мб;
-    return ${(size / (1024 * 1024 * 1024)).toFixed(2)} Гб;
+  async deleteFile(fileName: string) {
+    await this.minioClient.removeObject(this.bucketName, fileName);
+  }
+
+  private async setPublicBucketPolicy() {
+    const policy = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Sid: 'PublicReadGetObject',
+          Effect: 'Allow',
+          Principal: '*',
+          Action: 's3:GetObject',
+          Resource: `arn:aws:s3:::${this.bucketName}/*`,
+        },
+      ],
+    };
+    await this.minioClient.setBucketPolicy(
+      this.bucketName,
+      JSON.stringify(policy),
+    );
   }
 }
