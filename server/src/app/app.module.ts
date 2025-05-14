@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaModule } from 'src/prisma/prisma.modules';
+import { MinioModule } from 'src/minio/minio.module';
 import { CategoriesModule } from 'src/categories/categories.module';
 
 @Module({
@@ -8,6 +9,7 @@ import { CategoriesModule } from 'src/categories/categories.module';
     ConfigModule.forRoot({ isGlobal: true }),
     CategoriesModule,
     PrismaModule,
+    MinioModule,
   ],
   providers: [ConfigService],
 })
