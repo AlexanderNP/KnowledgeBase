@@ -41,12 +41,14 @@ export class MinioService {
     return fileName;
   }
 
+  // TODO Получать url отдельно для изображения (для отображения inline), отдельно для файлов (для скачивания)
   getFileUrl(fileName: string) {
     return `${this.minioFinalUrl}/${fileName}`;
   }
 
-  async deleteFile(fileName: string) {
-    await this.minioClient.removeObject(this.bucketName, fileName);
+  async deleteFile(endPoint: string) {
+    const fileName = endPoint.split('/').at(-1);
+    await this.minioClient.removeObject(this.bucketName, fileName ?? '');
   }
 
   private async setPublicBucketPolicy() {
