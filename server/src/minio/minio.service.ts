@@ -52,6 +52,7 @@ export class MinioService {
     return `${this.minioFinalUrl}/${fileName}`;
   }
 
+  // TODO: подумать как корректно применть данную функцию на обработчик ответа
   getPreparedFileUrlForRequest(fileName: string, isImage: boolean = false) {
     const filePath = `${this.minioFinalUrl}/${fileName}`;
 

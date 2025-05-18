@@ -16,6 +16,7 @@ import { CreateСategoryDto } from './dto/create-categories';
 import { Categories as CategoriesModel } from 'generated/prisma';
 import { MinioService } from 'src/minio/minio.service';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ValidationMongoIdPipe } from 'src/common/pipes/validation.mongoId.pipe';
 
 @Controller('categories')
 export class CategoriesController {
@@ -54,9 +55,10 @@ export class CategoriesController {
   }
 
   @Get(':id')
-  async getCategory(@Param('id') id: string): Promise<CategoriesModel> {
+  async getCategory(
+    @Param('id', ValidationMongoIdPipe) id: string,
+  ): Promise<CategoriesModel> {
     const findCategory = await this.categoriesService.getCategory({ id });
-    console.log(findCategory);
 
     if (!findCategory) {
       throw new NotFoundException(`Категория по ID ${id} не найдена`);
@@ -68,7 +70,7 @@ export class CategoriesController {
   @Put('update/:id')
   @UseInterceptors(FileInterceptor('image'))
   async updateCategory(
-    @Param('id') id: string,
+    @Param('id', ValidationMongoIdPipe) id: string,
     @Body() categoryData?: CreateСategoryDto,
     @UploadedFile() image?: Express.Multer.File,
   ): Promise<CategoriesModel> {
