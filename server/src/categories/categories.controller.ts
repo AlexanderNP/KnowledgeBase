@@ -17,7 +17,6 @@ import { Categories as CategoriesModel } from 'generated/prisma';
 import { MinioService } from 'src/minio/minio.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 
-// TODO Подключить валидацию
 @Controller('categories')
 export class CategoriesController {
   constructor(

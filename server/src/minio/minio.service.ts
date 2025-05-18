@@ -1,6 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as Minio from 'minio';
+import { extname } from 'path';
+
+enum ImageExtname {
+  JPEG = 'jpeg',
+  JPG = 'jpg',
+  PNG = 'png',
+  WEBP = 'webp',
+}
 
 @Injectable()
 export class MinioService {
@@ -30,20 +38,29 @@ export class MinioService {
   }
 
   async uploadFile(file: Express.Multer.File) {
-    const fileName = `${file.originalname}`;
     await this.minioClient.putObject(
       this.bucketName,
-      fileName,
+      file.originalname,
       file.buffer,
       file.size,
     );
 
-    return fileName;
+    return file.originalname;
   }
 
-  // TODO Получать url отдельно для изображения (для отображения inline), отдельно для файлов (для скачивания)
   getFileUrl(fileName: string) {
     return `${this.minioFinalUrl}/${fileName}`;
+  }
+
+  getPreparedFileUrlForRequest(fileName: string, isImage: boolean = false) {
+    const filePath = `${this.minioFinalUrl}/${fileName}`;
+
+    if (isImage) {
+      const mimeType = this.getMimeType(fileName);
+      return `${filePath}?response-cache-control=public&response-content-type=${mimeType}&response-content-disposition=inline`;
+    }
+
+    return `${filePath}?response-content-disposition=attachment`;
   }
 
   async deleteFile(endPoint: string) {
@@ -68,5 +85,22 @@ export class MinioService {
       this.bucketName,
       JSON.stringify(policy),
     );
+  }
+
+  private getMimeType(filename: string): string {
+    const extension = extname(filename) as ImageExtname;
+
+    switch (extension) {
+      case ImageExtname.JPG:
+      case ImageExtname.JPEG:
+        return 'image/jpeg';
+      case ImageExtname.PNG:
+        return 'image/png';
+      case ImageExtname.WEBP:
+        return 'image/webp';
+
+      default:
+        return 'application/octet-stream';
+    }
   }
 }
