@@ -15,17 +15,18 @@ datasource db {
 }
 
 model Articles {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  title      String
-  content    String
-  viewCount  Int          @default(0)
-  likesCount Int          @default(0)
-  authorId   String       @db.ObjectId
-  comments   Comments[]
-  mediaFiles MediaFiles[]
-  categories Categories[]
-  createdAt  DateTime     @default(now())
-  updateAt   DateTime     @updatedAt
+  id          String       @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  content     String
+  viewCount   Int          @default(0)
+  likesCount  Int          @default(0)
+  authorId    String       @db.ObjectId
+  categoryIds String[]     @db.ObjectId
+  categories  Categories[] @relation(fields: [categoryIds], references: [id])
+  comments    Comments[]
+  mediaFiles  MediaFiles[]
+  createdAt   DateTime     @default(now())
+  updateAt    DateTime     @updatedAt
 }
 
 model Comments {
@@ -47,14 +48,14 @@ model MediaFiles {
 }
 
 model Categories {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  name        String   @unique
+  id          String     @id @default(auto()) @map("_id") @db.ObjectId
+  name        String     @unique
   description String
   imageUrl    String?
-  articleId   String?   @db.ObjectId
-  article     Articles? @relation(fields: [articleId], references: [id])
-  createdAt   DateTime @default(now())
-  updateAt    DateTime @updatedAt
+  articleIds   String[]   @db.ObjectId
+  articles    Articles[] @relation(fields: [articleIds], references: [id])
+  createdAt   DateTime   @default(now())
+  updateAt    DateTime   @updatedAt
 }
 
 model User {
