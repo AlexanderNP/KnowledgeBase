@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaModule } from 'src/prisma/prisma.modules';
 import { MinioModule } from 'src/minio/minio.module';
 import { CategoriesModule } from 'src/categories/categories.module';
+import { ArticlesModule } from 'src/articles/articles.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { CategoriesModule } from 'src/categories/categories.module';
     CategoriesModule,
     PrismaModule,
     MinioModule,
+    ArticlesModule,
   ],
   providers: [ConfigService],
 })

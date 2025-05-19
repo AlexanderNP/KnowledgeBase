@@ -12,7 +12,7 @@ import {
   Delete,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
-import { CreateСategoryDto } from './dto/create-categories';
+import { CreateСategoryDto } from './dto/create-categories.dto';
 import { Categories as CategoriesModel } from 'generated/prisma';
 import { MinioService } from 'src/minio/minio.service';
 import { FileInterceptor } from '@nestjs/platform-express';
